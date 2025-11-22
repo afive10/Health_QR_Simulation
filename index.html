@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>健康码模拟演示</title>
+    <!-- 使用 Tailwind CSS 进行快速样式开发 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #3b82f6; /* 蓝色背景 */
+            touch-action: manipulation;
+        }
+        .card-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        /* 模拟秒数跳动的动画效果 */
+        .seconds-text {
+            display: inline-block;
+            min-width: 1.5em;
+        }
+        /* 模态框背景模糊 */
+        .backdrop-blur {
+            backdrop-filter: blur(5px);
+        }
+        .qr-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start py-4 px-4 relative overflow-x-hidden">
+
+    <!-- 顶部免责声明 -->
+    <div class="w-full max-w-md bg-yellow-300 text-red-700 px-4 py-2 text-center font-bold text-sm rounded-lg mb-4 shadow-md border-2 border-red-500 animate-pulse">
+        ⚠️ 本页面仅供演示，不是真实的健康码 ⚠️
+    </div>
+
+    <!-- 主要卡片区域 -->
+    <div class="w-full max-w-md bg-white rounded-2xl card-shadow overflow-hidden relative min-h-[600px] flex flex-col">
+        
+        <!-- 顶部装饰条 -->
+        <div class="h-2 w-full bg-blue-500"></div>
+
+        <!-- 头部信息区 -->
+        <div class="p-6 text-center border-b border-gray-100">
+            <h1 class="text-2xl font-bold text-gray-800 mb-1" id="display-name">姓名加载中...</h1>
+            <p class="text-gray-500 text-lg tracking-widest" id="display-id">身份证加载中...</p>
+        </div>
+
+        <!-- 核心时钟与二维码区 -->
+        <div class="flex-1 flex flex-col items-center justify-center py-6 bg-gray-50">
+            <!-- 时间显示 -->
+            <div class="text-blue-600 font-bold text-xl mb-4 tracking-wide" id="clock-display">
+                <!-- JS生成时间 -->
+                0000-00-00 00:00::<span class="text-5xl ml-1">00</span>
+            </div>
+
+            <!-- 二维码容器 -->
+            <div class="relative w-64 h-64 bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex items-center justify-center">
+                <!-- 这里的 src 会由 JS 动态修改 -->
+                <img id="qr-image" src="" alt="Health QR" class="w-full h-full object-cover rounded-lg" onerror="handleImageError(this)">
+                
+                <!-- LOGO 覆盖在二维码中间 (可选，模拟真实效果) -->
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div class="w-12 h-12 bg-white rounded-full p-1 shadow-sm flex items-center justify-center">
+                        <div class="w-full h-full bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                            通
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="mt-4 text-green-600 font-bold text-lg" id="status-text">绿码：凭码通行</p>
+        </div>
+
+        <!-- 底部功能区 -->
+        <div class="bg-white p-4 space-y-3 pb-8">
+            <!-- 快捷功能入口 -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <button class="p-3 bg-gray-50 rounded-lg text-blue-600 font-medium hover:bg-gray-100 text-sm flex items-center justify-center border border-gray-200">
+                    🧬 预约核酸检测
+                </button>
+                <button class="p-3 bg-gray-50 rounded-lg text-blue-600 font-medium hover:bg-gray-100 text-sm flex items-center justify-center border border-gray-200">
+                    📄 核酸检测报告
+                </button>
+            </div>
+
+            <!-- 疫苗状态 -->
+            <div class="border border-gray-200 rounded-xl p-4 flex items-center justify-between bg-gray-50">
+                <div class="flex items-center space-x-3">
+                    <div class="text-2xl">💉</div>
+                    <div class="text-sm">
+                        <p class="text-gray-500 mb-1">疫苗接种</p>
+                        <p class="text-gray-800 font-bold" id="vaccine-text">加载中...</p>
+                    </div>
+                </div>
+                <button class="text-gray-400">></button>
+            </div>
+
+            <!-- 发热报告 -->
+            <div class="border border-gray-200 rounded-xl p-4 flex items-center justify-between bg-gray-50">
+                <div class="flex items-center space-x-3">
+                    <div class="text-2xl">🌡️</div>
+                    <div class="text-gray-800 font-medium">发热报告</div>
+                </div>
+                <button class="text-gray-400">></button>
+            </div>
+
+            <!-- 切换家人 -->
+            <button onclick="openFamilyModal()" class="w-full mt-4 py-3 bg-white border-2 border-blue-500 text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-colors flex items-center justify-center space-x-2 shadow-sm">
+                <span>🔄</span>
+                <span>切换到家人 / 管理家庭成员</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 底部再次声明 -->
+    <p class="mt-6 text-white/80 text-xs text-center max-w-md">
+        本演示程序仅用于Web前端技术展示<br>
+        所显示信息均为本地模拟数据，不具备任何实际效力
+    </p>
+
+    <!-- ================= 模态框区域 ================= -->
+
+    <!-- 1. 输入信息模态框 (新建/初始) -->
+    <div id="input-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur px-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-[bounce_0.2s_ease-out]">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 text-center" id="modal-title">填写信息</h2>
+            <p class="text-xs text-gray-400 text-center mb-6">（本页面仅供演示，所有数据保存在本地，所显示信息均为本地模拟数据，不具备任何实际效力）</p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">姓名</label>
+                    <input type="text" id="input-name" placeholder="例如：张三" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">身份证号 (18位，输入随机数即可，不要输入真实的身份证号)</label>
+                    <input type="text" id="input-id" placeholder="例如：511000200604063247" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">健康码颜色</label>
+                    <select id="input-color" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="green">🟢 绿码 (无风险)</option>
+                        <option value="yellow">🟡 黄码 (有风险)</option>
+                        <option value="red">🔴 红码 (感染者)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">疫苗接种状态</label>
+                    <select id="input-vaccine" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="vaccinated">✅ 已接种</option>
+                        <option value="unvaccinated">❌ 未接种</option>
+                    </select>
+                </div>
+            </div>
+
+            <button onclick="saveUser()" class="w-full mt-6 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg">
+                保存并查看
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. 家人列表模态框 -->
+    <div id="family-modal" class="fixed inset-0 z-40 hidden flex items-end sm:items-center justify-center bg-black/50 backdrop-blur">
+        <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl p-4 shadow-2xl slide-up-animation">
+            <div class="flex justify-between items-center mb-4 px-2">
+                <h3 class="text-lg font-bold text-gray-800">切换家庭成员</h3>
+                <button onclick="closeFamilyModal()" class="text-gray-400 hover:text-gray-600 p-2">✕</button>
+            </div>
+            
+            <!-- 列表容器 -->
+            <div id="family-list" class="space-y-2 max-h-[60vh] overflow-y-auto mb-4">
+                <!-- JS 填充列表 -->
+            </div>
+
+            <button onclick="openAddUserModal()" class="w-full py-3 border-2 border-dashed border-blue-400 text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition flex items-center justify-center">
+                <span class="mr-2 text-xl">+</span> 添加家人
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ================= 数据与状态 =================
+        let users = []; // 存储用户对象 {name, id, color, vaccine}
+        let currentIndex = 0;
+
+        // ================= 核心逻辑 =================
+
+        // 初始化
+        window.onload = function() {
+            startClock();
+            
+            // 检查是否有本地存储的数据 (可选功能，这里为了演示简洁直接用内存变量，但逻辑上模拟初次使用)
+            if (users.length === 0) {
+                openInputModal(true); // true 表示初次强制输入
+            } else {
+                renderCode();
+            }
+        };
+
+        // 时钟功能
+        function startClock() {
+            const clockEl = document.getElementById('clock-display');
+            
+            function update() {
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                const hh = String(now.getHours()).padStart(2, '0');
+                const mm = String(now.getMinutes()).padStart(2, '0');
+                const ss = String(now.getSeconds()).padStart(2, '0');
+
+                // 蓝色文字，秒数特别大
+                clockEl.innerHTML = `${y}-${m}-${d} ${hh}:${mm}<span class="text-5xl font-bold ml-1 align-middle inline-block" style="transform: translateY(-2px)">${ss}</span>`;
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
+        // 数据脱敏函数
+        function maskName(name) {
+            if (!name) return "";
+            return "*" + name.slice(-1);
+        }
+
+        function maskID(id) {
+            if (!id || id.length < 2) return id;
+            return id[0] + "**************" + id.slice(-1);
+        }
+
+        // 渲染主界面
+        function renderCode() {
+            if (users.length === 0) return;
+            const user = users[currentIndex];
+
+            // 1. 文本信息
+            document.getElementById('display-name').textContent = maskName(user.name);
+            document.getElementById('display-id').textContent = maskID(user.id);
+
+            // 2. 二维码图片
+            const imgEl = document.getElementById('qr-image');
+            const statusText = document.getElementById('status-text');
+            
+            // 尝试调用本地图片
+            if (user.color === 'green') {
+                imgEl.src = 'greenQR.png';
+                statusText.textContent = "绿码：凭码通行";
+                statusText.className = "mt-4 text-green-600 font-bold text-lg animate-pulse";
+                imgEl.dataset.color = 'green'; // 用于fallback
+            } else if (user.color === 'yellow') {
+                imgEl.src = 'yellowQR.png';
+                statusText.textContent = "黄码：请居家隔离";
+                statusText.className = "mt-4 text-yellow-600 font-bold text-lg";
+                imgEl.dataset.color = 'yellow';
+            } else {
+                imgEl.src = 'redQR.png';
+                statusText.textContent = "红码：禁止出行";
+                statusText.className = "mt-4 text-red-600 font-bold text-lg";
+                imgEl.dataset.color = 'red';
+            }
+
+            // 3. 疫苗状态
+            const vaccineEl = document.getElementById('vaccine-text');
+            if (user.vaccine === 'vaccinated') {
+                vaccineEl.textContent = "已接种";
+                vaccineEl.className = "text-blue-600 font-bold";
+            } else {
+                vaccineEl.textContent = "已接种0次，点击查看附近的接种点";
+                vaccineEl.className = "text-gray-400 text-xs underline";
+            }
+        }
+
+        // 图片加载失败处理 (Web预览时的回退机制)
+        function handleImageError(img) {
+            // 如果找不到本地图片，生成一个在线的占位符或纯色块
+            const color = img.dataset.color || 'green';
+            let colorCode = '#22c55e'; // green-500
+            if (color === 'yellow') colorCode = '#eab308'; // yellow-500
+            if (color === 'red') colorCode = '#ef4444'; // red-500
+            
+            // 使用 SVG 生成简单的二维码样式占位
+            const svg = `
+            <svg width="100%" height="100%" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="200" height="200" fill="${colorCode}" fill-opacity="0.1"/>
+                <rect x="20" y="20" width="60" height="60" stroke="${colorCode}" stroke-width="10" fill="none"/>
+                <rect x="120" y="20" width="60" height="60" stroke="${colorCode}" stroke-width="10" fill="none"/>
+                <rect x="20" y="120" width="60" height="60" stroke="${colorCode}" stroke-width="10" fill="none"/>
+                <rect x="45" y="45" width="10" height="10" fill="${colorCode}"/>
+                <rect x="145" y="45" width="10" height="10" fill="${colorCode}"/>
+                <rect x="45" y="145" width="10" height="10" fill="${colorCode}"/>
+                <rect x="100" y="100" width="40" height="40" fill="${colorCode}"/>
+                <rect x="120" y="150" width="30" height="30" fill="${colorCode}"/>
+                <text x="100" y="190" font-family="Arial" font-size="12" text-anchor="middle" fill="${colorCode}">Image Not Found</text>
+            </svg>`;
+            
+            const blob = new Blob([svg], {type: 'image/svg+xml'});
+            const url = URL.createObjectURL(blob);
+            img.src = url;
+            
+            // 避免无限循环
+            img.onerror = null; 
+        }
+
+        // ================= 交互逻辑 =================
+
+        // 打开输入框
+        function openInputModal(isFirstTime = false) {
+            document.getElementById('input-modal').classList.remove('hidden');
+            // 清空输入
+            document.getElementById('input-name').value = '';
+            document.getElementById('input-id').value = '';
+            document.getElementById('input-color').value = 'green';
+            
+            const title = isFirstTime ? "初次使用登记" : "添加家庭成员";
+            document.getElementById('modal-title').textContent = title;
+        }
+
+        // 打开添加家人 (先关列表，再开输入)
+        function openAddUserModal() {
+            closeFamilyModal();
+            openInputModal(false);
+        }
+
+        // 保存用户
+        function saveUser() {
+            const name = document.getElementById('input-name').value.trim();
+            const id = document.getElementById('input-id').value.trim();
+            const color = document.getElementById('input-color').value;
+            const vaccine = document.getElementById('input-vaccine').value;
+
+            if (!name || !id) {
+                alert("请填写完整信息");
+                return;
+            }
+
+            const newUser = { name, id, color, vaccine };
+            users.push(newUser);
+            currentIndex = users.length - 1; // 切换到新添加的人
+
+            document.getElementById('input-modal').classList.add('hidden');
+            renderCode();
+        }
+
+        // 打开家人列表
+        function openFamilyModal() {
+            const listEl = document.getElementById('family-list');
+            listEl.innerHTML = ''; // 清空重绘
+
+            users.forEach((u, index) => {
+                const isCurrent = index === currentIndex;
+                const div = document.createElement('div');
+                div.className = `p-3 rounded-xl flex items-center justify-between cursor-pointer transition ${isCurrent ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50 border border-transparent'}`;
+                div.onclick = () => switchUser(index);
+
+                // 颜色圆点
+                let colorClass = 'bg-green-500';
+                if(u.color === 'yellow') colorClass = 'bg-yellow-500';
+                if(u.color === 'red') colorClass = 'bg-red-500';
+
+                div.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full ${colorClass} text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                            ${u.name.slice(-1)}
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-800 text-sm">${maskName(u.name)}</p>
+                            <p class="text-xs text-gray-400">${maskID(u.id)}</p>
+                        </div>
+                    </div>
+                    ${isCurrent ? '<span class="text-blue-600 text-sm font-bold">当前</span>' : ''}
+                `;
+                listEl.appendChild(div);
+            });
+
+            document.getElementById('family-modal').classList.remove('hidden');
+        }
+
+        function closeFamilyModal() {
+            document.getElementById('family-modal').classList.add('hidden');
+        }
+
+        function switchUser(index) {
+            currentIndex = index;
+            renderCode();
+            closeFamilyModal();
+        }
+
+    </script>
+</body>
+</html>
